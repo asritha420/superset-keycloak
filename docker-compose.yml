@@ -1,0 +1,137 @@
+version: "3.7"
+
+volumes:
+  redis:
+    external: false
+  superset_home:
+    external: false
+  postgres_data:
+    external: false
+
+services:
+  redis:
+    image: redis:latest
+    container_name: superset_cache
+    restart: unless-stopped
+    volumes:
+      - redis:/data
+
+  db:
+    image: postgres:latest
+    container_name: superset_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: superset
+      POSTGRES_PASSWORD: superset
+      POSTGRES_DB: superset
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  superset-app:
+    env_file: .env
+    image: &superset-image apache/superset:latest-dev
+    command: [ "/app/docker/docker-bootstrap.sh", "app-gunicorn" ]
+    user: "root"
+    ports:
+      - $HOST_PORT:$SUPERSET_PORT
+    depends_on:
+      - redis
+      - db
+    volumes:
+      - ./docker:/app/docker
+      - ./assets/images/superset-logo-horiz.png:/app/superset/static/assets/images/superset-logo-horiz.png
+      - ./templates/superset/public_welcome.html:/app/superset/templates/superset/public_welcome.html
+      - ./assets/images/favicon.png:/app/superset/static/assets/images/favicon.png
+    environment:
+      FLASK_ENV: development
+      SUPERSET_ENV: development
+      FLASK_DEBUG: "True"
+      DATABASE_DIALECT: postgresql
+      DATABASE_HOST: db
+      DATABASE_PORT: 5432
+      DATABASE_USER: superset
+      DATABASE_PASSWORD: superset
+      DATABASE_DB: superset
+
+  superset-init:
+    image: *superset-image
+    command: [ "/app/docker/docker-init.sh" ]
+    env_file: .env
+    depends_on:
+      - redis
+      - db
+    user: "root"
+    volumes:
+      - ./docker:/app/docker
+      - ./assets/images/superset-logo-horiz.png:/app/superset/static/assets/images/superset-logo-horiz.png
+      - ./templates/superset/public_welcome.html:/app/superset/templates/superset/public_welcome.html
+      - ./assets/images/favicon.png:/app/superset/static/assets/images/favicon.png
+    environment:
+      FLASK_ENV: development
+      SUPERSET_ENV: development
+      FLASK_DEBUG: "True"
+      DATABASE_DIALECT: postgresql
+      DATABASE_HOST: db
+      DATABASE_PORT: 5432
+      DATABASE_USER: superset
+      DATABASE_PASSWORD: superset
+      DATABASE_DB: superset
+
+  superset-worker:
+    image: *superset-image
+    command: [ "/app/docker/docker-bootstrap.sh", "worker" ]
+    env_file: .env
+    depends_on:
+      - redis
+      - db
+    user: "root"
+    volumes:
+      - ./docker:/app/docker
+      - ./assets/images/superset-logo-horiz.png:/app/superset/static/assets/images/superset-logo-horiz.png
+      - ./templates/superset/public_welcome.html:/app/superset/templates/superset/public_welcome.html
+      - ./assets/images/favicon.png:/app/superset/static/assets/images/favicon.png
+    environment:
+      FLASK_ENV: development
+      SUPERSET_ENV: development
+      FLASK_DEBUG: "True"
+      DATABASE_DIALECT: postgresql
+      DATABASE_HOST: db
+      DATABASE_PORT: 5432
+      DATABASE_USER: superset
+      DATABASE_PASSWORD: superset
+      DATABASE_DB: superset
+
+  superset-worker-beat:
+    image: *superset-image
+    command: [ "/app/docker/docker-bootstrap.sh", "beat" ]
+    env_file: .env
+    depends_on:
+      - redis
+      - db
+    user: "root"
+    volumes:
+      - ./docker:/app/docker
+      - ./assets/images/superset-logo-horiz.png:/app/superset/static/assets/images/superset-logo-horiz.png
+      - ./templates/superset/public_welcome.html:/app/superset/templates/superset/public_welcome.html
+      - ./assets/images/favicon.png:/app/superset/static/assets/images/favicon.png
+    environment:
+      FLASK_ENV: development
+      SUPERSET_ENV: development
+      FLASK_DEBUG: "True"
+      DATABASE_DIALECT: postgresql
+      DATABASE_HOST: db
+      DATABASE_PORT: 5432
+      DATABASE_USER: superset
+      DATABASE_PASSWORD: superset
+      DATABASE_DB: superset
+
+  keycloak:
+    image: "keycloak/keycloak:latest"
+    command: start-dev
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+    ports:
+      - "8081:8080"
